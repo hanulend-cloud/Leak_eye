@@ -378,10 +378,17 @@ public class MainActivity extends Activity {
     private final CameraCaptureSession.CaptureCallback previewCallback = new CameraCaptureSession.CaptureCallback() {
         @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest request, TotalCaptureResult result) {
             Float diopters = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
-            if (diopters == null) return;
-            Float meters = ExposureScale.distanceMeters(diopters);
-            String text = meters != null ? String.format(Locale.US, "거리(추정): %.2f m (AF)", meters) : "거리(추정): ∞";
-            runOnUiThread(() -> distanceStatus.setText(text));
+            if (diopters != null) {
+                Float meters = ExposureScale.distanceMeters(diopters);
+                String text = meters != null ? String.format(Locale.US, "거리(추정): %.2f m (AF)", meters) : "거리(추정): ∞";
+                runOnUiThread(() -> distanceStatus.setText(text));
+            }
+            Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+            boolean locked = controls.current().manual || AfStateClassifier.isLocked(afState);
+            runOnUiThread(() -> {
+                focusStatus.setText(locked ? "포커스: 완료" : "포커스: 확인중");
+                if (overlay != null) overlay.setGated(!locked);
+            });
         }
     };
 

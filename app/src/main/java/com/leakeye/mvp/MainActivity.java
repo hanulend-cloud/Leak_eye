@@ -92,7 +92,14 @@ public class MainActivity extends Activity {
     private boolean rawSupported;
     private CameraCharacteristics characteristics;
     private Rect cropRegion;
+    private Rect activeArraySize;
     private MeteringRectangle afRegion;
+    private float zoomFactor = 3f;
+    private float measurementPercent = 0.10f;
+    private Button zoomButton;
+    private Button percent10Button;
+    private Button percent20Button;
+    private Button percent30Button;
     private final Handler brightnessHandler = new Handler(Looper.getMainLooper());
     private final Runnable brightnessTick = this::sampleBrightness;
     private static final long BRIGHTNESS_INTERVAL_MS = 300L;
@@ -182,6 +189,31 @@ public class MainActivity extends Activity {
         focusStatus.setTextColor(Color.rgb(150, 190, 210));
         focusStatus.setPadding(24, 0, 24, 12);
         root.addView(focusStatus, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout zoomAndPercentRow = new LinearLayout(this);
+        zoomAndPercentRow.setOrientation(LinearLayout.HORIZONTAL);
+        zoomButton = new Button(this);
+        zoomButton.setText("확대: 3배");
+        zoomButton.setOnClickListener(view -> toggleZoom());
+        percent10Button = new Button(this);
+        percent10Button.setText("10%");
+        percent10Button.setOnClickListener(view -> selectMeasurementPercent(0.10f));
+        percent20Button = new Button(this);
+        percent20Button.setText("20%");
+        percent20Button.setOnClickListener(view -> selectMeasurementPercent(0.20f));
+        percent30Button = new Button(this);
+        percent30Button.setText("30%");
+        percent30Button.setOnClickListener(view -> selectMeasurementPercent(0.30f));
+        LinearLayout.LayoutParams quarter = new LinearLayout.LayoutParams(0, -2, 1);
+        quarter.setMargins(4, 4, 4, 4);
+        zoomAndPercentRow.addView(zoomButton, quarter);
+        zoomAndPercentRow.addView(percent10Button, quarter);
+        zoomAndPercentRow.addView(percent20Button, quarter);
+        zoomAndPercentRow.addView(percent30Button, quarter);
+        LinearLayout.LayoutParams zoomRowParams = new LinearLayout.LayoutParams(-1, -2);
+        zoomRowParams.setMargins(16, 0, 16, 8);
+        root.addView(zoomAndPercentRow, zoomRowParams);
+        refreshPercentButtonHighlight();
 
         previewContainer = new FrameLayout(this);
         previewContainer.setBackgroundColor(Color.BLACK);
@@ -275,8 +307,8 @@ public class MainActivity extends Activity {
             }
             if (cameraId == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR);
             characteristics = manager.getCameraCharacteristics(cameraId);
-            Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-            int[] crop = ZoomCropRegion.centeredCrop(activeArray.left, activeArray.top, activeArray.right, activeArray.bottom, 3f);
+            activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            int[] crop = ZoomCropRegion.centeredCrop(activeArraySize.left, activeArraySize.top, activeArraySize.right, activeArraySize.bottom, zoomFactor);
             cropRegion = new Rect(crop[0], crop[1], crop[2], crop[3]);
             configureControls();
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
@@ -430,6 +462,7 @@ public class MainActivity extends Activity {
                         status.setText("측정 대기 / RAW " + (rawSupported ? "지원" : "미지원"));
                         layoutPreview();
                         updatePreview();
+                        if (overlay.getCenterX() >= 0) focusAt(overlay.getCenterX(), overlay.getCenterY());
                         startBrightnessSampler();
                     });
                 }
@@ -506,6 +539,37 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** 배율을 1배/3배로 토글하고, 새 크롭 영역으로 AF 리전을 다시 맞춘다. */
+    private void toggleZoom() {
+        zoomFactor = (zoomFactor == 3f) ? 1f : 3f;
+        zoomButton.setText(zoomFactor == 3f ? "확대: 3배" : "확대: 1배");
+        if (activeArraySize != null) {
+            int[] crop = ZoomCropRegion.centeredCrop(activeArraySize.left, activeArraySize.top,
+                    activeArraySize.right, activeArraySize.bottom, zoomFactor);
+            cropRegion = new Rect(crop[0], crop[1], crop[2], crop[3]);
+        }
+        if (overlay != null && overlay.getCenterX() >= 0) {
+            focusAt(overlay.getCenterX(), overlay.getCenterY());
+        } else {
+            updatePreview();
+        }
+    }
+
+    /** 측정영역 비율(10/20/30%)을 바꾸고 버튼 강조 표시를 갱신한다. */
+    private void selectMeasurementPercent(float percent) {
+        measurementPercent = percent;
+        if (overlay != null) overlay.setPercent(percent);
+        refreshPercentButtonHighlight();
+    }
+
+    private void refreshPercentButtonHighlight() {
+        int selectedColor = Color.rgb(102, 217, 166);
+        int normalColor = Color.rgb(60, 60, 60);
+        percent10Button.setBackgroundColor(measurementPercent == 0.10f ? selectedColor : normalColor);
+        percent20Button.setBackgroundColor(measurementPercent == 0.20f ? selectedColor : normalColor);
+        percent30Button.setBackgroundColor(measurementPercent == 0.30f ? selectedColor : normalColor);
+    }
+
     /** 화면 터치 지점으로 포커스를 맞추고 평가영역 중심을 갱신한다. */
     private void focusAt(float viewX, float viewY) {
         if (overlay != null) overlay.updateCenter(viewX, viewY);
@@ -557,13 +621,9 @@ public class MainActivity extends Activity {
                 int h = bitmap.getHeight();
                 float cx = overlay.getCenterX();
                 float cy = overlay.getCenterY();
-                int side10 = SquareGeometry.squareSide(w, h, 0.10f);
-                int side20 = SquareGeometry.squareSide(w, h, 0.20f);
-                int side30 = SquareGeometry.squareSide(w, h, 0.30f);
-                int luma10 = sampleSquare(bitmap, cx, cy, side10);
-                int luma20 = sampleSquare(bitmap, cx, cy, side20);
-                int luma30 = sampleSquare(bitmap, cx, cy, side30);
-                overlay.updateMetrics(luma10, side10 * side10, luma20, side20 * side20, luma30, side30 * side30);
+                int side = SquareGeometry.squareSide(w, h, measurementPercent);
+                int luma = sampleSquare(bitmap, cx, cy, side);
+                overlay.updateMetrics(luma, side * side);
                 bitmap.recycle();
             }
         }

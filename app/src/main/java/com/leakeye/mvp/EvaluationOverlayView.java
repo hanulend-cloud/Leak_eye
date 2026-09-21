@@ -41,6 +41,10 @@ public class EvaluationOverlayView extends View {
         if (centerX < 0) {
             centerX = w / 2f;
             centerY = h / 2f;
+        } else if (oldw > 0 && oldh > 0 && (oldw != w || oldh != h)) {
+            // 폴드/언폴드 등으로 뷰 크기가 바뀌면 이전 탭 위치를 비율 그대로 새 크기에 맞춰 옮긴다.
+            centerX = centerX / oldw * w;
+            centerY = centerY / oldh * h;
         }
     }
 

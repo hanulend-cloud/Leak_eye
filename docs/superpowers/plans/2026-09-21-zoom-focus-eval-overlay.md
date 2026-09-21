@@ -221,7 +221,7 @@ public class SquareGeometryTest {
     @Test
     public void squareSideUsesShorterDimension() {
         assertEquals(90, SquareGeometry.squareSide(900, 1200, 0.10f));
-        assertEquals(120, SquareGeometry.squareSide(1200, 900, 0.10f));
+        assertEquals(120, SquareGeometry.squareSide(1200, 1500, 0.10f));
     }
 
     @Test

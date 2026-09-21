@@ -262,6 +262,9 @@ public class MainActivity extends Activity {
             }
             if (cameraId == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR);
             characteristics = manager.getCameraCharacteristics(cameraId);
+            Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            int[] crop = ZoomCropRegion.centeredCrop(activeArray.left, activeArray.top, activeArray.right, activeArray.bottom, 3f);
+            cropRegion = new Rect(crop[0], crop[1], crop[2], crop[3]);
             configureControls();
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Size[] rawSizes = map.getOutputSizes(ImageFormat.RAW_SENSOR);
@@ -465,6 +468,10 @@ public class MainActivity extends Activity {
                 CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 builder.addTarget(previewSurface);
                 applySettings(builder, settings);
+                if (cropRegion != null) builder.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
+                if (afRegion != null && !settings.manual) {
+                    builder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{afRegion});
+                }
                 session.setRepeatingRequest(builder.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
                 runOnUiThread(() -> {
@@ -519,6 +526,7 @@ public class MainActivity extends Activity {
             builder.addTarget(jpegReader.getSurface());
             builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
             applySettings(builder, next);
+            if (cropRegion != null) builder.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
             inFlight = next;
             currentStamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date());
             pendingResult = null;

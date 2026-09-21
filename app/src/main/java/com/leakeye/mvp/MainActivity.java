@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.Sensor;
@@ -27,6 +28,7 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -35,10 +37,12 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Range;
 import android.util.Size;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.widget.Button;
@@ -71,7 +75,9 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView poseStatus;
     private TextView distanceStatus;
+    private TextView focusStatus;
     private ExposureControls controls;
+    private EvaluationOverlayView overlay;
     private SensorManager sensorManager;
     private Sensor rotationSensor;
     private volatile float pitchDeg = Float.NaN;
@@ -85,6 +91,11 @@ public class MainActivity extends Activity {
     private String cameraId;
     private boolean rawSupported;
     private CameraCharacteristics characteristics;
+    private Rect cropRegion;
+    private MeteringRectangle afRegion;
+    private final Handler brightnessHandler = new Handler(Looper.getMainLooper());
+    private final Runnable brightnessTick = this::sampleBrightness;
+    private static final long BRIGHTNESS_INTERVAL_MS = 300L;
     /**
      * 저장되는 JPEG 파일(saveJpeg의 Bitmap 회전)에만 쓰는 값이다. 실기기에서 텍스트가 있는 장면으로
      * 4방향을 직접 비교해 확정했다(시계방향 90도). 화면 미리보기(configureTransform)는 TextureView
@@ -130,6 +141,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         sensorManager.unregisterListener(sensorListener);
+        stopBrightnessSampler();
         closeCameraDevice();
         super.onPause();
     }
@@ -165,6 +177,12 @@ public class MainActivity extends Activity {
         distanceStatus.setPadding(24, 0, 24, 12);
         root.addView(distanceStatus, new LinearLayout.LayoutParams(-1, -2));
 
+        focusStatus = new TextView(this);
+        focusStatus.setText("포커스: -");
+        focusStatus.setTextColor(Color.rgb(150, 190, 210));
+        focusStatus.setPadding(24, 0, 24, 12);
+        root.addView(focusStatus, new LinearLayout.LayoutParams(-1, -2));
+
         previewContainer = new FrameLayout(this);
         previewContainer.setBackgroundColor(Color.BLACK);
         previewContainer.addOnLayoutChangeListener(
@@ -172,7 +190,14 @@ public class MainActivity extends Activity {
 
         preview = new TextureView(this);
         preview.setSurfaceTextureListener(surfaceListener);
+        preview.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) focusAt(event.getX(), event.getY());
+            return true;
+        });
         previewContainer.addView(preview, new FrameLayout.LayoutParams(-1, -1));
+
+        overlay = new EvaluationOverlayView(this);
+        previewContainer.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
         root.addView(previewContainer, new LinearLayout.LayoutParams(-1, 0, 1));
 
         controls = new ExposureControls(this);
@@ -250,6 +275,9 @@ public class MainActivity extends Activity {
             }
             if (cameraId == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR);
             characteristics = manager.getCameraCharacteristics(cameraId);
+            Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            int[] crop = ZoomCropRegion.centeredCrop(activeArray.left, activeArray.top, activeArray.right, activeArray.bottom, 3f);
+            cropRegion = new Rect(crop[0], crop[1], crop[2], crop[3]);
             configureControls();
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Size[] rawSizes = map.getOutputSizes(ImageFormat.RAW_SENSOR);
@@ -350,10 +378,17 @@ public class MainActivity extends Activity {
     private final CameraCaptureSession.CaptureCallback previewCallback = new CameraCaptureSession.CaptureCallback() {
         @Override public void onCaptureCompleted(CameraCaptureSession s, CaptureRequest request, TotalCaptureResult result) {
             Float diopters = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
-            if (diopters == null) return;
-            Float meters = ExposureScale.distanceMeters(diopters);
-            String text = meters != null ? String.format(Locale.US, "거리(추정): %.2f m (AF)", meters) : "거리(추정): ∞";
-            runOnUiThread(() -> distanceStatus.setText(text));
+            if (diopters != null) {
+                Float meters = ExposureScale.distanceMeters(diopters);
+                String text = meters != null ? String.format(Locale.US, "거리(추정): %.2f m (AF)", meters) : "거리(추정): ∞";
+                runOnUiThread(() -> distanceStatus.setText(text));
+            }
+            Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
+            boolean locked = controls.current().manual || AfStateClassifier.isLocked(afState);
+            runOnUiThread(() -> {
+                focusStatus.setText(locked ? "포커스: 완료" : "포커스: 확인중");
+                if (overlay != null) overlay.setGated(!locked);
+            });
         }
     };
 
@@ -395,6 +430,7 @@ public class MainActivity extends Activity {
                         status.setText("측정 대기 / RAW " + (rawSupported ? "지원" : "미지원"));
                         layoutPreview();
                         updatePreview();
+                        startBrightnessSampler();
                     });
                 }
                 @Override public void onConfigureFailed(CameraCaptureSession configured) { runOnUiThread(() -> status.setText("촬영 세션 구성 실패")); }
@@ -421,6 +457,9 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(targetW, targetH);
         lp.gravity = Gravity.CENTER;
         preview.setLayoutParams(lp);
+        FrameLayout.LayoutParams overlayLp = new FrameLayout.LayoutParams(targetW, targetH);
+        overlayLp.gravity = Gravity.CENTER;
+        overlay.setLayoutParams(overlayLp);
         configureTransform(targetW, targetH);
     }
 
@@ -453,6 +492,10 @@ public class MainActivity extends Activity {
                 CaptureRequest.Builder builder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 builder.addTarget(previewSurface);
                 applySettings(builder, settings);
+                if (cropRegion != null) builder.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
+                if (afRegion != null && !settings.manual) {
+                    builder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{afRegion});
+                }
                 session.setRepeatingRequest(builder.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
                 runOnUiThread(() -> {
@@ -461,6 +504,82 @@ public class MainActivity extends Activity {
                 });
             }
         });
+    }
+
+    /** 화면 터치 지점으로 포커스를 맞추고 평가영역 중심을 갱신한다. */
+    private void focusAt(float viewX, float viewY) {
+        if (overlay != null) overlay.updateCenter(viewX, viewY);
+        if (camera == null || session == null || cropRegion == null || previewSurface == null) return;
+        ExposureSettings settings = controls.current();
+        if (settings.manual) return;
+        int viewW = preview.getWidth();
+        int viewH = preview.getHeight();
+        if (viewW == 0 || viewH == 0) return;
+        // AF 리전 크기: 크롭 영역 폭의 5%를 정사각형 한 변으로 사용한다.
+        int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.05f));
+        int[] region = TapFocusMapper.mapTapToAfRegion(viewX, viewY, viewW, viewH,
+                cropRegion.left, cropRegion.top, cropRegion.width(), cropRegion.height(), regionSize);
+        // 사용자가 명시적으로 탭한 지점이므로 최우선순위에 가깝게 높은 가중치를 준다.
+        MeteringRectangle newRegion = new MeteringRectangle(region[0], region[1], region[2], region[3],
+                MeteringRectangle.METERING_WEIGHT_MAX - 1);
+        afRegion = newRegion;
+        cameraHandler.post(() -> {
+            try {
+                CaptureRequest.Builder trigger = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                trigger.addTarget(previewSurface);
+                applySettings(trigger, settings);
+                trigger.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
+                trigger.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{newRegion});
+                trigger.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+                session.capture(trigger.build(), previewCallback, cameraHandler);
+            } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
+                // AF 트리거 실패는 무시한다 (오버레이 이동은 이미 반영됨).
+            }
+        });
+        updatePreview();
+    }
+
+    /** UI 스레드. 프리뷰가 살아있는 동안 300ms 주기로 평가영역 밝기를 다시 계산한다. */
+    private void startBrightnessSampler() {
+        brightnessHandler.removeCallbacks(brightnessTick);
+        brightnessHandler.postDelayed(brightnessTick, BRIGHTNESS_INTERVAL_MS);
+    }
+
+    private void stopBrightnessSampler() {
+        brightnessHandler.removeCallbacks(brightnessTick);
+    }
+
+    private void sampleBrightness() {
+        if (preview != null && preview.isAvailable() && overlay != null) {
+            Bitmap bitmap = preview.getBitmap();
+            if (bitmap != null) {
+                int w = bitmap.getWidth();
+                int h = bitmap.getHeight();
+                float cx = overlay.getCenterX();
+                float cy = overlay.getCenterY();
+                int side10 = SquareGeometry.squareSide(w, h, 0.10f);
+                int side20 = SquareGeometry.squareSide(w, h, 0.20f);
+                int side30 = SquareGeometry.squareSide(w, h, 0.30f);
+                int luma10 = sampleSquare(bitmap, cx, cy, side10);
+                int luma20 = sampleSquare(bitmap, cx, cy, side20);
+                int luma30 = sampleSquare(bitmap, cx, cy, side30);
+                overlay.updateMetrics(luma10, side10 * side10, luma20, side20 * side20, luma30, side30 * side30);
+                bitmap.recycle();
+            }
+        }
+        brightnessHandler.postDelayed(brightnessTick, BRIGHTNESS_INTERVAL_MS);
+    }
+
+    private int sampleSquare(Bitmap bitmap, float cx, float cy, int side) {
+        if (side <= 0) return 0;
+        float half = side / 2f;
+        float clampedCx = SquareGeometry.clampCenter(cx, half, bitmap.getWidth());
+        float clampedCy = SquareGeometry.clampCenter(cy, half, bitmap.getHeight());
+        int left = Math.round(clampedCx - half);
+        int top = Math.round(clampedCy - half);
+        int[] pixels = new int[side * side];
+        bitmap.getPixels(pixels, 0, side, left, top, side, side);
+        return LumaMath.averageLuma(pixels);
     }
 
     private void captureRaw() {
@@ -507,6 +626,7 @@ public class MainActivity extends Activity {
             builder.addTarget(jpegReader.getSurface());
             builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
             applySettings(builder, next);
+            if (cropRegion != null) builder.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
             inFlight = next;
             currentStamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date());
             pendingResult = null;

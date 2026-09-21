@@ -221,7 +221,7 @@ public class SquareGeometryTest {
     @Test
     public void squareSideUsesShorterDimension() {
         assertEquals(90, SquareGeometry.squareSide(900, 1200, 0.10f));
-        assertEquals(120, SquareGeometry.squareSide(1200, 900, 0.10f));
+        assertEquals(120, SquareGeometry.squareSide(1200, 1500, 0.10f));
     }
 
     @Test
@@ -1155,9 +1155,11 @@ MSYS_NO_PATHCONV=1 "$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" install -r
 
 수동 확인 체크리스트 (화면을 직접 보며 확인):
 
+- [ ] **(최우선) 탭한 화면 위치와 실제로 초점이 맞는 지점이 일치하는가** — 최종 코드 리뷰에서 `TapFocusMapper`가 `configureTransform()`의 가로/세로 축 교환(센서는 landscape, 화면은 portrait)을 반영하지 않을 가능성이 지적됨. 어긋나 보이면(예: 세로로 탭했는데 가로 방향으로 어긋난 지점에 초점) `MainActivity.focusAt()`에서 `TapFocusMapper.mapTapToAfRegion` 호출 시 tapX/tapY 또는 viewW/viewH를 서로 바꿔 넘기는 보정이 필요 (스펙의 "알려진 리스크" 참고)
 - [ ] 앱 실행 시 프리뷰가 기존보다 3배 확대되어 보이는가 (화각이 좁아짐)
 - [ ] 앱 실행 직후(터치 전) 평가영역 3개 사각형이 화면 중심에 표시되는가
 - [ ] 화면을 터치하면 그 지점으로 사각형/십자선 중심이 이동하는가
+- [ ] 폴드/언폴드로 화면 크기가 바뀌어도 직전에 탭한 위치가 화면 비율에 맞게 유지되는가 (최종 리뷰에서 발견되어 수정한 부분 — `EvaluationOverlayView.onSizeChanged`)
 - [ ] 터치 직후 "포커스: 확인중" → 잠시 후 "포커스: 완료"로 바뀌는가
 - [ ] "포커스: 확인중"인 동안 밝기/면적 수치에 "(측정대기)"가 붙어 표시되는가
 - [ ] "포커스: 완료" 후 밝기(0-255)·면적(px) 수치가 정상 범위로 표시되는가

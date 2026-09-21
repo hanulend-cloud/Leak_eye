@@ -564,13 +564,9 @@ public class MainActivity extends Activity {
                 int h = bitmap.getHeight();
                 float cx = overlay.getCenterX();
                 float cy = overlay.getCenterY();
-                int side10 = SquareGeometry.squareSide(w, h, 0.10f);
-                int side20 = SquareGeometry.squareSide(w, h, 0.20f);
-                int side30 = SquareGeometry.squareSide(w, h, 0.30f);
-                int luma10 = sampleSquare(bitmap, cx, cy, side10);
-                int luma20 = sampleSquare(bitmap, cx, cy, side20);
-                int luma30 = sampleSquare(bitmap, cx, cy, side30);
-                overlay.updateMetrics(luma10, side10 * side10, luma20, side20 * side20, luma30, side30 * side30);
+                int side = SquareGeometry.squareSide(w, h, measurementPercent);
+                int luma = sampleSquare(bitmap, cx, cy, side);
+                overlay.updateMetrics(luma, side * side);
                 bitmap.recycle();
             }
         }

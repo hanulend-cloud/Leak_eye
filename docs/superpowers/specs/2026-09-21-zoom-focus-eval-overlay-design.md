@@ -9,6 +9,7 @@
 3. 화면 터치 시 그 위치로 포커스를 맞추고, 그 위치를 중심으로 10%/20%/30% 빨간 정사각형 평가 영역 표시
 4. 정사각형 내부는 비우고(테두리만), 가장 바깥 사각형 밖으로는 중심을 지나는 가로/세로 십자선 표시
 5. 각 정사각형 내부 영역의 평균 밝기(0-255)와 면적(pixel 개수)을 화면에 수치로 표시
+6. 3배 줌 상태에서는 포커스 정확도가 측정 신뢰도의 전제 조건이므로, 포커스가 실제로 잠기기 전에는 밝기/면적 수치를 신뢰 가능한 값으로 표시하지 않음
 
 ## 범위 밖
 
@@ -58,6 +59,16 @@
 - 면적(pixel 개수) = 사각형 변² (정수), 별도 계산 불필요 (결정적)
 - 결과를 `EvaluationOverlayView.updateMetrics(...)`로 전달
 
+### 6. AF 상태 감시 및 측정값 게이팅
+
+- 기존 `previewCallback`(`CameraCaptureSession.CaptureCallback.onCaptureCompleted`)에서 이미 `TotalCaptureResult`를 받고 있으므로, 여기서 `CaptureResult.CONTROL_AF_STATE`를 함께 읽음
+- 상태 분류:
+  - **잠김(신뢰 가능)**: `AF_STATE_FOCUSED_LOCKED`, `AF_STATE_PASSIVE_FOCUSED`
+  - **확인 중(신뢰 불가)**: `AF_STATE_ACTIVE_SCAN`, `AF_STATE_PASSIVE_SCAN`, `AF_STATE_NOT_FOCUSED_LOCKED`, 또는 값 없음(manual 모드 등 AF 미사용 시)
+- `poseStatus`/`distanceStatus`와 같은 위치에 "포커스: 확인중" / "포커스: 완료" 텍스트 추가 표시
+- `EvaluationOverlayView`의 밝기/면적 텍스트는 AF가 "확인 중" 상태인 동안은 마지막 신뢰값을 흐리게(alpha 낮춤) 표시하거나 "측정대기"로 대체하고, "잠김" 상태가 되는 즉시 최신 밝기 샘플러 결과로 갱신
+- Manual 모드(AF_MODE_OFF, 사용자가 초점거리를 직접 고정)일 때는 AF_STATE가 항상 없으므로 별도 취급: 이 경우는 사용자가 이미 의도적으로 초점을 고정한 것이므로 게이팅 없이 항상 신뢰 가능한 값으로 표시
+
 ## 데이터 흐름
 
 ```
@@ -66,6 +77,7 @@
   → [auto모드] AF 리전 캡처 요청 1회 + 리전 유지
   → 오버레이 centerX/centerY 갱신 → invalidate()
   → (병렬) 300ms 밝기 샘플러 루프가 항상 최신 center 기준으로 재계산 → invalidate()
+  → (병렬) previewCallback에서 AF_STATE 관찰 → "확인중"이면 수치 게이팅, "잠김"이면 최신 샘플 값 신뢰 표시로 전환
 ```
 
 ## 에러 처리
@@ -73,6 +85,11 @@
 - AF 미지원 기기/`IllegalArgumentException`: AF 트리거만 무시하고 로그, 오버레이 이동은 항상 수행 (기존 manual 모드 실패 처리 패턴과 동일하게 조용히 폴백)
 - `preview.getBitmap()`이 `null`(서페이스 미준비/카메라 미오픈): 해당 틱 스킵, 다음 틱 재시도
 - 사각형이 뷰 경계를 벗어나는 극단적 탭 위치(예: 모서리 근처): 사각형/샘플링 영역을 뷰 경계로 clamp
+
+## 알려진 리스크 (실기기에서 확인 필요)
+
+- `SCALER_CROP_REGION`이 RAW_SENSOR 스트림에는 적용되지 않고 풀센서로 나오는 기기가 있음 — Fold5에서 RAW 파일도 3배 줌이 반영되는지 확인 필요. 반영 안 되면 "RAW는 풀센서 유지, 프리뷰/JPEG만 줌"으로 설계 조정
+- AF 리전 좌표계 해석이 기기별로 달라 탭 위치와 실제 포커스 지점이 어긋날 수 있음 — 실기기 테스트하며 매핑 보정 가능성 있음
 
 ## 테스트 계획
 
@@ -82,5 +99,6 @@
 - 탭 좌표 → 활성 배열 좌표 매핑 함수
 - 사각형 변 길이 계산 (10/20/30%, min(w,h) 기준)
 - 평균 루마 계산 함수
+- AF_STATE → 신뢰가능/확인중 분류 함수
 
 카메라/터치/실기기 동작(AF 실제 반응, 화면 렌더링)은 에뮬레이션 불가 — Fold5 실기기에서 수동 확인.

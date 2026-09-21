@@ -92,7 +92,14 @@ public class MainActivity extends Activity {
     private boolean rawSupported;
     private CameraCharacteristics characteristics;
     private Rect cropRegion;
+    private Rect activeArraySize;
     private MeteringRectangle afRegion;
+    private float zoomFactor = 3f;
+    private float measurementPercent = 0.10f;
+    private Button zoomButton;
+    private Button percent10Button;
+    private Button percent20Button;
+    private Button percent30Button;
     private final Handler brightnessHandler = new Handler(Looper.getMainLooper());
     private final Runnable brightnessTick = this::sampleBrightness;
     private static final long BRIGHTNESS_INTERVAL_MS = 300L;
@@ -275,8 +282,8 @@ public class MainActivity extends Activity {
             }
             if (cameraId == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR);
             characteristics = manager.getCameraCharacteristics(cameraId);
-            Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-            int[] crop = ZoomCropRegion.centeredCrop(activeArray.left, activeArray.top, activeArray.right, activeArray.bottom, 3f);
+            activeArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+            int[] crop = ZoomCropRegion.centeredCrop(activeArraySize.left, activeArraySize.top, activeArraySize.right, activeArraySize.bottom, zoomFactor);
             cropRegion = new Rect(crop[0], crop[1], crop[2], crop[3]);
             configureControls();
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);

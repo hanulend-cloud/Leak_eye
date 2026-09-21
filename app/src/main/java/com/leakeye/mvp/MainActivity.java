@@ -94,8 +94,7 @@ public class MainActivity extends Activity {
     private Rect cropRegion;
     private MeteringRectangle afRegion;
     private final Handler brightnessHandler = new Handler(Looper.getMainLooper());
-    // Task 11에서 sampleBrightness()를 정의하면서 this::sampleBrightness로 교체한다.
-    private Runnable brightnessTick = () -> {};
+    private final Runnable brightnessTick = this::sampleBrightness;
     private static final long BRIGHTNESS_INTERVAL_MS = 300L;
     /**
      * 저장되는 JPEG 파일(saveJpeg의 Bitmap 회전)에만 쓰는 값이다. 실기기에서 텍스트가 있는 장면으로
@@ -142,6 +141,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         sensorManager.unregisterListener(sensorListener);
+        stopBrightnessSampler();
         closeCameraDevice();
         super.onPause();
     }
@@ -430,6 +430,7 @@ public class MainActivity extends Activity {
                         status.setText("측정 대기 / RAW " + (rawSupported ? "지원" : "미지원"));
                         layoutPreview();
                         updatePreview();
+                        startBrightnessSampler();
                     });
                 }
                 @Override public void onConfigureFailed(CameraCaptureSession configured) { runOnUiThread(() -> status.setText("촬영 세션 구성 실패")); }
@@ -536,6 +537,49 @@ public class MainActivity extends Activity {
             }
         });
         updatePreview();
+    }
+
+    /** UI 스레드. 프리뷰가 살아있는 동안 300ms 주기로 평가영역 밝기를 다시 계산한다. */
+    private void startBrightnessSampler() {
+        brightnessHandler.removeCallbacks(brightnessTick);
+        brightnessHandler.postDelayed(brightnessTick, BRIGHTNESS_INTERVAL_MS);
+    }
+
+    private void stopBrightnessSampler() {
+        brightnessHandler.removeCallbacks(brightnessTick);
+    }
+
+    private void sampleBrightness() {
+        if (preview != null && preview.isAvailable() && overlay != null) {
+            Bitmap bitmap = preview.getBitmap();
+            if (bitmap != null) {
+                int w = bitmap.getWidth();
+                int h = bitmap.getHeight();
+                float cx = overlay.getCenterX();
+                float cy = overlay.getCenterY();
+                int side10 = SquareGeometry.squareSide(w, h, 0.10f);
+                int side20 = SquareGeometry.squareSide(w, h, 0.20f);
+                int side30 = SquareGeometry.squareSide(w, h, 0.30f);
+                int luma10 = sampleSquare(bitmap, cx, cy, side10);
+                int luma20 = sampleSquare(bitmap, cx, cy, side20);
+                int luma30 = sampleSquare(bitmap, cx, cy, side30);
+                overlay.updateMetrics(luma10, side10 * side10, luma20, side20 * side20, luma30, side30 * side30);
+                bitmap.recycle();
+            }
+        }
+        brightnessHandler.postDelayed(brightnessTick, BRIGHTNESS_INTERVAL_MS);
+    }
+
+    private int sampleSquare(Bitmap bitmap, float cx, float cy, int side) {
+        if (side <= 0) return 0;
+        float half = side / 2f;
+        float clampedCx = SquareGeometry.clampCenter(cx, half, bitmap.getWidth());
+        float clampedCy = SquareGeometry.clampCenter(cy, half, bitmap.getHeight());
+        int left = Math.round(clampedCx - half);
+        int top = Math.round(clampedCy - half);
+        int[] pixels = new int[side * side];
+        bitmap.getPixels(pixels, 0, side, left, top, side, side);
+        return LumaMath.averageLuma(pixels);
     }
 
     private void captureRaw() {

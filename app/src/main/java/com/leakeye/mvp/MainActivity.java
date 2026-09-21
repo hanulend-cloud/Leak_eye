@@ -70,6 +70,11 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int CAMERA_PERMISSION = 42;
+    private static final int COLOR_BG = Color.rgb(16, 20, 22);
+    private static final int COLOR_ACCENT = Color.rgb(102, 217, 166);
+    private static final int COLOR_TEXT_SECONDARY = Color.rgb(150, 190, 210);
+    private static final int COLOR_BUTTON_NORMAL = Color.rgb(60, 60, 60);
+    private static final int COLOR_BUTTON_TEXT = Color.WHITE;
     private TextureView preview;
     private FrameLayout previewContainer;
     private TextView status;
@@ -156,53 +161,62 @@ public class MainActivity extends Activity {
     private void buildUi() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(16, 20, 22));
+        root.setBackgroundColor(COLOR_BG);
         root.setFitsSystemWindows(true);
 
         TextView title = new TextView(this);
         title.setText("LEAK EYE  /  CAMERA2 PoC");
-        title.setTextColor(Color.rgb(102, 217, 166));
-        title.setTextSize(18);
-        title.setPadding(24, 24, 24, 12);
+        title.setTextColor(COLOR_ACCENT);
+        title.setTextSize(16);
+        title.setPadding(16, 12, 16, 6);
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         status = new TextView(this);
         status.setText("카메라 capability 확인 중...");
-        status.setTextColor(Color.LTGRAY);
-        status.setPadding(24, 0, 24, 12);
+        status.setTextColor(COLOR_TEXT_SECONDARY);
+        status.setTextSize(13);
+        status.setPadding(16, 0, 16, 6);
         root.addView(status, new LinearLayout.LayoutParams(-1, -2));
 
         poseStatus = new TextView(this);
         poseStatus.setText("각도: 측정 중...");
-        poseStatus.setTextColor(Color.rgb(150, 190, 210));
-        poseStatus.setPadding(24, 0, 24, 0);
+        poseStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        poseStatus.setTextSize(13);
+        poseStatus.setPadding(16, 0, 16, 0);
         root.addView(poseStatus, new LinearLayout.LayoutParams(-1, -2));
 
         distanceStatus = new TextView(this);
         distanceStatus.setText("거리(추정): -");
-        distanceStatus.setTextColor(Color.rgb(150, 190, 210));
-        distanceStatus.setPadding(24, 0, 24, 12);
+        distanceStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        distanceStatus.setTextSize(13);
+        distanceStatus.setPadding(16, 0, 16, 6);
         root.addView(distanceStatus, new LinearLayout.LayoutParams(-1, -2));
 
         focusStatus = new TextView(this);
         focusStatus.setText("포커스: -");
-        focusStatus.setTextColor(Color.rgb(150, 190, 210));
-        focusStatus.setPadding(24, 0, 24, 12);
+        focusStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        focusStatus.setTextSize(13);
+        focusStatus.setPadding(16, 0, 16, 6);
         root.addView(focusStatus, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout zoomAndPercentRow = new LinearLayout(this);
         zoomAndPercentRow.setOrientation(LinearLayout.HORIZONTAL);
         zoomButton = new Button(this);
         zoomButton.setText("확대: 3배");
+        zoomButton.setTextColor(COLOR_BUTTON_TEXT);
+        zoomButton.setBackgroundColor(COLOR_BUTTON_NORMAL);
         zoomButton.setOnClickListener(view -> toggleZoom());
         percent10Button = new Button(this);
         percent10Button.setText("10%");
+        percent10Button.setTextColor(COLOR_BUTTON_TEXT);
         percent10Button.setOnClickListener(view -> selectMeasurementPercent(0.10f));
         percent20Button = new Button(this);
         percent20Button.setText("20%");
+        percent20Button.setTextColor(COLOR_BUTTON_TEXT);
         percent20Button.setOnClickListener(view -> selectMeasurementPercent(0.20f));
         percent30Button = new Button(this);
         percent30Button.setText("30%");
+        percent30Button.setTextColor(COLOR_BUTTON_TEXT);
         percent30Button.setOnClickListener(view -> selectMeasurementPercent(0.30f));
         LinearLayout.LayoutParams quarter = new LinearLayout.LayoutParams(0, -2, 1);
         quarter.setMargins(4, 4, 4, 4);
@@ -211,7 +225,7 @@ public class MainActivity extends Activity {
         zoomAndPercentRow.addView(percent20Button, quarter);
         zoomAndPercentRow.addView(percent30Button, quarter);
         LinearLayout.LayoutParams zoomRowParams = new LinearLayout.LayoutParams(-1, -2);
-        zoomRowParams.setMargins(16, 0, 16, 8);
+        zoomRowParams.setMargins(16, 0, 16, 6);
         root.addView(zoomAndPercentRow, zoomRowParams);
         refreshPercentButtonHighlight();
 
@@ -223,7 +237,9 @@ public class MainActivity extends Activity {
         preview = new TextureView(this);
         preview.setSurfaceTextureListener(surfaceListener);
         preview.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) focusAt(event.getX(), event.getY());
+            if (event.getAction() == MotionEvent.ACTION_DOWN && overlay.containsPoint(event.getX(), event.getY())) {
+                focusAt(overlay.getCenterX(), overlay.getCenterY());
+            }
             return true;
         });
         previewContainer.addView(preview, new FrameLayout.LayoutParams(-1, -1));
@@ -240,16 +256,20 @@ public class MainActivity extends Activity {
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         Button capture = new Button(this);
         capture.setText("RAW 촬영");
+        capture.setTextColor(COLOR_BUTTON_TEXT);
+        capture.setBackgroundColor(COLOR_BUTTON_NORMAL);
         capture.setOnClickListener(view -> captureRaw());
         Button sweep = new Button(this);
         sweep.setText("노출 스윕 (16장)");
+        sweep.setTextColor(COLOR_BUTTON_TEXT);
+        sweep.setBackgroundColor(COLOR_BUTTON_NORMAL);
         sweep.setOnClickListener(view -> captureSweep());
         LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, -2, 1);
         half.setMargins(8, 4, 8, 4);
         buttons.addView(capture, half);
         buttons.addView(sweep, half);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-        rowParams.setMargins(16, 4, 16, 24);
+        rowParams.setMargins(16, 4, 16, 12);
         root.addView(buttons, rowParams);
         setContentView(root);
     }
@@ -479,14 +499,9 @@ public class MainActivity extends Activity {
         if (containerW == 0 || containerH == 0) return;
         // 센서는 가로(previewSize.width > height) 방향으로 읽히고, 화면은 세로이므로 폭:높이 비율을 뒤집는다.
         float ratioWH = (float) previewSize.getHeight() / previewSize.getWidth();
-        int targetW, targetH;
-        if ((float) containerW / containerH > ratioWH) {
-            targetH = containerH;
-            targetW = Math.round(targetH * ratioWH);
-        } else {
-            targetW = containerW;
-            targetH = Math.round(targetW / ratioWH);
-        }
+        // 화면 폭을 항상 꽉 채운다 — 높이가 컨테이너보다 커지면 FrameLayout이 위아래를 잘라서 보여준다.
+        int targetW = containerW;
+        int targetH = Math.round(targetW / ratioWH);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(targetW, targetH);
         lp.gravity = Gravity.CENTER;
         preview.setLayoutParams(lp);
@@ -563,14 +578,16 @@ public class MainActivity extends Activity {
     }
 
     private void refreshPercentButtonHighlight() {
-        int selectedColor = Color.rgb(102, 217, 166);
-        int normalColor = Color.rgb(60, 60, 60);
-        percent10Button.setBackgroundColor(measurementPercent == 0.10f ? selectedColor : normalColor);
-        percent20Button.setBackgroundColor(measurementPercent == 0.20f ? selectedColor : normalColor);
-        percent30Button.setBackgroundColor(measurementPercent == 0.30f ? selectedColor : normalColor);
+        percent10Button.setBackgroundColor(measurementPercent == 0.10f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
+        percent20Button.setBackgroundColor(measurementPercent == 0.20f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
+        percent30Button.setBackgroundColor(measurementPercent == 0.30f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
     }
 
-    /** 화면 터치 지점으로 포커스를 맞추고 평가영역 중심을 갱신한다. */
+    /**
+     * (viewX, viewY) 위치를 기준으로 AF 리전을 계산해 포커스를 맞춘다. overlay.updateCenter()는
+     * 유지하지만, 현재 모든 호출부(탭/줌 토글/세션 시작)가 overlay의 기존 중심 좌표를 그대로 넘기므로
+     * 실질적으로는 위치 이동 없이 같은 자리에서 재초점만 시도하는 셈이다.
+     */
     private void focusAt(float viewX, float viewY) {
         if (overlay != null) overlay.updateCenter(viewX, viewY);
         if (camera == null || session == null || cropRegion == null || previewSurface == null) return;
@@ -579,8 +596,9 @@ public class MainActivity extends Activity {
         int viewW = preview.getWidth();
         int viewH = preview.getHeight();
         if (viewW == 0 || viewH == 0) return;
-        // AF 리전 크기: 크롭 영역 폭의 5%를 정사각형 한 변으로 사용한다.
-        int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.05f));
+        // AF 리전 크기: 크롭 영역 폭의 20%를 정사각형 한 변으로 사용한다
+        // (대비가 낮은 장면에서도 AF가 잡을 대상이 넓어지도록 5%에서 확대함).
+        int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.20f));
         int[] region = TapFocusMapper.mapTapToAfRegion(viewX, viewY, viewW, viewH,
                 cropRegion.left, cropRegion.top, cropRegion.width(), cropRegion.height(), regionSize);
         // 사용자가 명시적으로 탭한 지점이므로 최우선순위에 가깝게 높은 가중치를 준다.
@@ -597,7 +615,7 @@ public class MainActivity extends Activity {
                 trigger.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
                 session.capture(trigger.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
-                // AF 트리거 실패는 무시한다 (오버레이 이동은 이미 반영됨).
+                // AF 트리거 실패는 무시한다.
             }
         });
         updatePreview();

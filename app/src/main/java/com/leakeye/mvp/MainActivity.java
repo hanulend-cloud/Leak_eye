@@ -507,9 +507,11 @@ public class MainActivity extends Activity {
         int viewW = preview.getWidth();
         int viewH = preview.getHeight();
         if (viewW == 0 || viewH == 0) return;
+        // AF 리전 크기: 크롭 영역 폭의 5%를 정사각형 한 변으로 사용한다.
         int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.05f));
         int[] region = TapFocusMapper.mapTapToAfRegion(viewX, viewY, viewW, viewH,
                 cropRegion.left, cropRegion.top, cropRegion.width(), cropRegion.height(), regionSize);
+        // 사용자가 명시적으로 탭한 지점이므로 최우선순위에 가깝게 높은 가중치를 준다.
         MeteringRectangle newRegion = new MeteringRectangle(region[0], region[1], region[2], region[3],
                 MeteringRectangle.METERING_WEIGHT_MAX - 1);
         afRegion = newRegion;

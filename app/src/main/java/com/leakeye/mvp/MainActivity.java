@@ -481,14 +481,9 @@ public class MainActivity extends Activity {
         if (containerW == 0 || containerH == 0) return;
         // 센서는 가로(previewSize.width > height) 방향으로 읽히고, 화면은 세로이므로 폭:높이 비율을 뒤집는다.
         float ratioWH = (float) previewSize.getHeight() / previewSize.getWidth();
-        int targetW, targetH;
-        if ((float) containerW / containerH > ratioWH) {
-            targetH = containerH;
-            targetW = Math.round(targetH * ratioWH);
-        } else {
-            targetW = containerW;
-            targetH = Math.round(targetW / ratioWH);
-        }
+        // 화면 폭을 항상 꽉 채운다 — 높이가 컨테이너보다 커지면 FrameLayout이 위아래를 잘라서 보여준다.
+        int targetW = containerW;
+        int targetH = Math.round(targetW / ratioWH);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(targetW, targetH);
         lp.gravity = Gravity.CENTER;
         preview.setLayoutParams(lp);

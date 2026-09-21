@@ -586,7 +586,9 @@ public class MainActivity extends Activity {
     /**
      * (viewX, viewY) 위치를 기준으로 AF 리전을 계산해 포커스를 맞춘다. overlay.updateCenter()는
      * 유지하지만, 현재 모든 호출부(탭/줌 토글/세션 시작)가 overlay의 기존 중심 좌표를 그대로 넘기므로
-     * 실질적으로는 위치 이동 없이 같은 자리에서 재초점만 시도하는 셈이다.
+     * 실질적으로는 위치 이동 없이 같은 자리에서 재초점만 시도하는 셈이다. 재초점은 CONTROL_AF_TRIGGER가
+     * 아니라 AF 모드를 OFF로 껐다가 CONTINUOUS_PICTURE로 되돌리는 방식으로 유도한다 — 실기기 확인 결과
+     * 트리거만으로는 스캔이 시작되기 전에 끊겨버렸다.
      */
     private void focusAt(float viewX, float viewY) {
         if (overlay != null) overlay.updateCenter(viewX, viewY);
@@ -607,18 +609,28 @@ public class MainActivity extends Activity {
         afRegion = newRegion;
         cameraHandler.post(() -> {
             try {
-                CaptureRequest.Builder trigger = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-                trigger.addTarget(previewSurface);
-                applySettings(trigger, settings);
-                trigger.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
-                trigger.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{newRegion});
-                trigger.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
-                session.capture(trigger.build(), previewCallback, cameraHandler);
+                // CONTROL_AF_TRIGGER_START를 1회성 capture()로만 보내고 곧바로 트리거 없는 반복요청으로
+                // 갈아치우면 이 기기에서는 스캔이 시작되기도 전에 끊겨버린다(실기기 확인 결과, 수동노출을
+                // On->Off로 전환할 때는 재초점이 확실히 되는 것과 대조적). 수동노출 토글이 실제로 하는 일은
+                // AF 모드를 OFF로 껐다가 CONTINUOUS_PICTURE로 되돌리는 것뿐이므로, 같은 방식(모드 전환 자체로
+                // 재스캔을 유도)을 그대로 재현한다.
+                CaptureRequest.Builder resetOff = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                resetOff.addTarget(previewSurface);
+                applySettings(resetOff, settings);
+                resetOff.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
+                resetOff.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+                session.setRepeatingRequest(resetOff.build(), previewCallback, cameraHandler);
+
+                CaptureRequest.Builder resume = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                resume.addTarget(previewSurface);
+                applySettings(resume, settings);
+                resume.set(CaptureRequest.SCALER_CROP_REGION, cropRegion);
+                resume.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{newRegion});
+                session.setRepeatingRequest(resume.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
-                // AF 트리거 실패는 무시한다.
+                // AF 재설정 실패는 무시한다.
             }
         });
-        updatePreview();
     }
 
     /** UI 스레드. 프리뷰가 살아있는 동안 300ms 주기로 평가영역 밝기를 다시 계산한다. */

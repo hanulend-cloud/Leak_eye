@@ -109,6 +109,18 @@ public class EvaluationOverlayView extends View {
                 cx + half + 8, cy - half, textPaint);
     }
 
+    /** (x, y)가 현재 그려진 평가영역 사각형 내부인지 판단한다. onDraw()와 동일한 계산을 재사용한다. */
+    public boolean containsPoint(float x, float y) {
+        int w = getWidth();
+        int h = getHeight();
+        if (w == 0 || h == 0 || centerX < 0) return false;
+        int side = SquareGeometry.squareSide(w, h, percent);
+        float cx = SquareGeometry.clampCenter(centerX, side / 2f, w);
+        float cy = SquareGeometry.clampCenter(centerY, side / 2f, h);
+        float half = side / 2f;
+        return x >= cx - half && x <= cx + half && y >= cy - half && y <= cy + half;
+    }
+
     private void drawSquare(Canvas canvas, float cx, float cy, int side) {
         float half = side / 2f;
         canvas.drawRect(cx - half, cy - half, cx + half, cy + half, boxPaint);

@@ -462,6 +462,7 @@ public class MainActivity extends Activity {
                         status.setText("측정 대기 / RAW " + (rawSupported ? "지원" : "미지원"));
                         layoutPreview();
                         updatePreview();
+                        if (overlay.getCenterX() >= 0) focusAt(overlay.getCenterX(), overlay.getCenterY());
                         startBrightnessSampler();
                     });
                 }

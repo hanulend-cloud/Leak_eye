@@ -223,7 +223,9 @@ public class MainActivity extends Activity {
         preview = new TextureView(this);
         preview.setSurfaceTextureListener(surfaceListener);
         preview.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) focusAt(event.getX(), event.getY());
+            if (event.getAction() == MotionEvent.ACTION_DOWN && overlay.containsPoint(event.getX(), event.getY())) {
+                focusAt(overlay.getCenterX(), overlay.getCenterY());
+            }
             return true;
         });
         previewContainer.addView(preview, new FrameLayout.LayoutParams(-1, -1));
@@ -579,8 +581,9 @@ public class MainActivity extends Activity {
         int viewW = preview.getWidth();
         int viewH = preview.getHeight();
         if (viewW == 0 || viewH == 0) return;
-        // AF 리전 크기: 크롭 영역 폭의 5%를 정사각형 한 변으로 사용한다.
-        int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.05f));
+        // AF 리전 크기: 크롭 영역 폭의 20%를 정사각형 한 변으로 사용한다
+        // (대비가 낮은 장면에서도 AF가 잡을 대상이 넓어지도록 5%에서 확대함).
+        int regionSize = Math.max(1, Math.round(cropRegion.width() * 0.20f));
         int[] region = TapFocusMapper.mapTapToAfRegion(viewX, viewY, viewW, viewH,
                 cropRegion.left, cropRegion.top, cropRegion.width(), cropRegion.height(), regionSize);
         // 사용자가 명시적으로 탭한 지점이므로 최우선순위에 가깝게 높은 가중치를 준다.

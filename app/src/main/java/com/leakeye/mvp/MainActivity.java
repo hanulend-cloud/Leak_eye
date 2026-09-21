@@ -70,6 +70,11 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int CAMERA_PERMISSION = 42;
+    private static final int COLOR_BG = Color.rgb(16, 20, 22);
+    private static final int COLOR_ACCENT = Color.rgb(102, 217, 166);
+    private static final int COLOR_TEXT_SECONDARY = Color.rgb(150, 190, 210);
+    private static final int COLOR_BUTTON_NORMAL = Color.rgb(60, 60, 60);
+    private static final int COLOR_BUTTON_TEXT = Color.WHITE;
     private TextureView preview;
     private FrameLayout previewContainer;
     private TextView status;
@@ -156,53 +161,62 @@ public class MainActivity extends Activity {
     private void buildUi() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(16, 20, 22));
+        root.setBackgroundColor(COLOR_BG);
         root.setFitsSystemWindows(true);
 
         TextView title = new TextView(this);
         title.setText("LEAK EYE  /  CAMERA2 PoC");
-        title.setTextColor(Color.rgb(102, 217, 166));
-        title.setTextSize(18);
-        title.setPadding(24, 24, 24, 12);
+        title.setTextColor(COLOR_ACCENT);
+        title.setTextSize(16);
+        title.setPadding(16, 12, 16, 6);
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         status = new TextView(this);
         status.setText("카메라 capability 확인 중...");
-        status.setTextColor(Color.LTGRAY);
-        status.setPadding(24, 0, 24, 12);
+        status.setTextColor(COLOR_TEXT_SECONDARY);
+        status.setTextSize(13);
+        status.setPadding(16, 0, 16, 6);
         root.addView(status, new LinearLayout.LayoutParams(-1, -2));
 
         poseStatus = new TextView(this);
         poseStatus.setText("각도: 측정 중...");
-        poseStatus.setTextColor(Color.rgb(150, 190, 210));
-        poseStatus.setPadding(24, 0, 24, 0);
+        poseStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        poseStatus.setTextSize(13);
+        poseStatus.setPadding(16, 0, 16, 0);
         root.addView(poseStatus, new LinearLayout.LayoutParams(-1, -2));
 
         distanceStatus = new TextView(this);
         distanceStatus.setText("거리(추정): -");
-        distanceStatus.setTextColor(Color.rgb(150, 190, 210));
-        distanceStatus.setPadding(24, 0, 24, 12);
+        distanceStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        distanceStatus.setTextSize(13);
+        distanceStatus.setPadding(16, 0, 16, 6);
         root.addView(distanceStatus, new LinearLayout.LayoutParams(-1, -2));
 
         focusStatus = new TextView(this);
         focusStatus.setText("포커스: -");
-        focusStatus.setTextColor(Color.rgb(150, 190, 210));
-        focusStatus.setPadding(24, 0, 24, 12);
+        focusStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        focusStatus.setTextSize(13);
+        focusStatus.setPadding(16, 0, 16, 6);
         root.addView(focusStatus, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout zoomAndPercentRow = new LinearLayout(this);
         zoomAndPercentRow.setOrientation(LinearLayout.HORIZONTAL);
         zoomButton = new Button(this);
         zoomButton.setText("확대: 3배");
+        zoomButton.setTextColor(COLOR_BUTTON_TEXT);
+        zoomButton.setBackgroundColor(COLOR_BUTTON_NORMAL);
         zoomButton.setOnClickListener(view -> toggleZoom());
         percent10Button = new Button(this);
         percent10Button.setText("10%");
+        percent10Button.setTextColor(COLOR_BUTTON_TEXT);
         percent10Button.setOnClickListener(view -> selectMeasurementPercent(0.10f));
         percent20Button = new Button(this);
         percent20Button.setText("20%");
+        percent20Button.setTextColor(COLOR_BUTTON_TEXT);
         percent20Button.setOnClickListener(view -> selectMeasurementPercent(0.20f));
         percent30Button = new Button(this);
         percent30Button.setText("30%");
+        percent30Button.setTextColor(COLOR_BUTTON_TEXT);
         percent30Button.setOnClickListener(view -> selectMeasurementPercent(0.30f));
         LinearLayout.LayoutParams quarter = new LinearLayout.LayoutParams(0, -2, 1);
         quarter.setMargins(4, 4, 4, 4);
@@ -211,7 +225,7 @@ public class MainActivity extends Activity {
         zoomAndPercentRow.addView(percent20Button, quarter);
         zoomAndPercentRow.addView(percent30Button, quarter);
         LinearLayout.LayoutParams zoomRowParams = new LinearLayout.LayoutParams(-1, -2);
-        zoomRowParams.setMargins(16, 0, 16, 8);
+        zoomRowParams.setMargins(16, 0, 16, 6);
         root.addView(zoomAndPercentRow, zoomRowParams);
         refreshPercentButtonHighlight();
 
@@ -242,16 +256,20 @@ public class MainActivity extends Activity {
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         Button capture = new Button(this);
         capture.setText("RAW 촬영");
+        capture.setTextColor(COLOR_BUTTON_TEXT);
+        capture.setBackgroundColor(COLOR_BUTTON_NORMAL);
         capture.setOnClickListener(view -> captureRaw());
         Button sweep = new Button(this);
         sweep.setText("노출 스윕 (16장)");
+        sweep.setTextColor(COLOR_BUTTON_TEXT);
+        sweep.setBackgroundColor(COLOR_BUTTON_NORMAL);
         sweep.setOnClickListener(view -> captureSweep());
         LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, -2, 1);
         half.setMargins(8, 4, 8, 4);
         buttons.addView(capture, half);
         buttons.addView(sweep, half);
         LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-        rowParams.setMargins(16, 4, 16, 24);
+        rowParams.setMargins(16, 4, 16, 12);
         root.addView(buttons, rowParams);
         setContentView(root);
     }
@@ -560,11 +578,9 @@ public class MainActivity extends Activity {
     }
 
     private void refreshPercentButtonHighlight() {
-        int selectedColor = Color.rgb(102, 217, 166);
-        int normalColor = Color.rgb(60, 60, 60);
-        percent10Button.setBackgroundColor(measurementPercent == 0.10f ? selectedColor : normalColor);
-        percent20Button.setBackgroundColor(measurementPercent == 0.20f ? selectedColor : normalColor);
-        percent30Button.setBackgroundColor(measurementPercent == 0.30f ? selectedColor : normalColor);
+        percent10Button.setBackgroundColor(measurementPercent == 0.10f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
+        percent20Button.setBackgroundColor(measurementPercent == 0.20f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
+        percent30Button.setBackgroundColor(measurementPercent == 0.30f ? COLOR_ACCENT : COLOR_BUTTON_NORMAL);
     }
 
     /**

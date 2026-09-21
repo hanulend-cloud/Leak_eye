@@ -572,7 +572,11 @@ public class MainActivity extends Activity {
         percent30Button.setBackgroundColor(measurementPercent == 0.30f ? selectedColor : normalColor);
     }
 
-    /** 화면 터치 지점으로 포커스를 맞추고 평가영역 중심을 갱신한다. */
+    /**
+     * (viewX, viewY) 위치를 기준으로 AF 리전을 계산해 포커스를 맞춘다. overlay.updateCenter()는
+     * 유지하지만, 현재 모든 호출부(탭/줌 토글/세션 시작)가 overlay의 기존 중심 좌표를 그대로 넘기므로
+     * 실질적으로는 위치 이동 없이 같은 자리에서 재초점만 시도하는 셈이다.
+     */
     private void focusAt(float viewX, float viewY) {
         if (overlay != null) overlay.updateCenter(viewX, viewY);
         if (camera == null || session == null || cropRegion == null || previewSurface == null) return;
@@ -600,7 +604,7 @@ public class MainActivity extends Activity {
                 trigger.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
                 session.capture(trigger.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
-                // AF 트리거 실패는 무시한다 (오버레이 이동은 이미 반영됨).
+                // AF 트리거 실패는 무시한다.
             }
         });
         updatePreview();

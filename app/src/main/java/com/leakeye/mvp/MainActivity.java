@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.Sensor;
@@ -27,6 +28,7 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
@@ -35,10 +37,12 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Range;
 import android.util.Size;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.widget.Button;
@@ -71,7 +75,9 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView poseStatus;
     private TextView distanceStatus;
+    private TextView focusStatus;
     private ExposureControls controls;
+    private EvaluationOverlayView overlay;
     private SensorManager sensorManager;
     private Sensor rotationSensor;
     private volatile float pitchDeg = Float.NaN;
@@ -85,6 +91,12 @@ public class MainActivity extends Activity {
     private String cameraId;
     private boolean rawSupported;
     private CameraCharacteristics characteristics;
+    private Rect cropRegion;
+    private MeteringRectangle afRegion;
+    private final Handler brightnessHandler = new Handler(Looper.getMainLooper());
+    // Task 11에서 sampleBrightness()를 정의하면서 this::sampleBrightness로 교체한다.
+    private Runnable brightnessTick = () -> {};
+    private static final long BRIGHTNESS_INTERVAL_MS = 300L;
     /**
      * 저장되는 JPEG 파일(saveJpeg의 Bitmap 회전)에만 쓰는 값이다. 실기기에서 텍스트가 있는 장면으로
      * 4방향을 직접 비교해 확정했다(시계방향 90도). 화면 미리보기(configureTransform)는 TextureView

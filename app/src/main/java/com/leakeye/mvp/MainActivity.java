@@ -79,14 +79,17 @@ public class MainActivity extends Activity {
     private FrameLayout previewContainer;
     private TextView status;
     private TextView poseStatus;
+    private TextView luxStatus;
     private TextView distanceStatus;
     private TextView focusStatus;
     private ExposureControls controls;
     private EvaluationOverlayView overlay;
     private SensorManager sensorManager;
     private Sensor rotationSensor;
+    private Sensor lightSensor;
     private volatile float pitchDeg = Float.NaN;
     private volatile float rollDeg = Float.NaN;
+    private volatile float luxValue = Float.NaN;
     private CameraDevice camera;
     private CameraCaptureSession session;
     private ImageReader rawReader;
@@ -141,6 +144,8 @@ public class MainActivity extends Activity {
         rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
         if (rotationSensor == null) rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if (rotationSensor == null) poseStatus.setText("각도 센서 없음");
+        lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+        if (lightSensor == null) luxStatus.setText("조도 센서 없음");
     }
 
     @Override
@@ -148,11 +153,13 @@ public class MainActivity extends Activity {
         super.onResume();
         maybeOpenCamera();
         if (rotationSensor != null) sensorManager.registerListener(sensorListener, rotationSensor, SensorManager.SENSOR_DELAY_UI);
+        if (lightSensor != null) sensorManager.registerListener(lightListener, lightSensor, SensorManager.SENSOR_DELAY_UI);
     }
 
     @Override
     protected void onPause() {
         sensorManager.unregisterListener(sensorListener);
+        sensorManager.unregisterListener(lightListener);
         stopBrightnessSampler();
         closeCameraDevice();
         super.onPause();
@@ -164,12 +171,26 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(COLOR_BG);
         root.setFitsSystemWindows(true);
 
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+
         TextView title = new TextView(this);
         title.setText("LEAK EYE  /  CAMERA2 PoC");
         title.setTextColor(COLOR_ACCENT);
         title.setTextSize(16);
         title.setPadding(16, 12, 16, 6);
-        root.addView(title, new LinearLayout.LayoutParams(-1, -2));
+        titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+
+        luxStatus = new TextView(this);
+        luxStatus.setText("조도: 측정 중...");
+        luxStatus.setTextColor(COLOR_TEXT_SECONDARY);
+        luxStatus.setTextSize(13);
+        luxStatus.setPadding(16, 12, 16, 6);
+        luxStatus.setGravity(Gravity.END);
+        titleRow.addView(luxStatus, new LinearLayout.LayoutParams(-2, -2));
+
+        root.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
 
         status = new TextView(this);
         status.setText("카메라 capability 확인 중...");
@@ -423,6 +444,15 @@ public class MainActivity extends Activity {
             pitchDeg = angles[0];
             rollDeg = angles[1];
             poseStatus.setText(String.format(Locale.US, "각도: 상하 %.1f° / 좌우 %.1f°", pitchDeg, rollDeg));
+        }
+        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) { }
+    };
+
+    /** UI 스레드에서 등록되므로(onResume) 콜백도 UI 스레드에서 온다. */
+    private final SensorEventListener lightListener = new SensorEventListener() {
+        @Override public void onSensorChanged(SensorEvent event) {
+            luxValue = event.values[0];
+            luxStatus.setText(String.format(Locale.US, "%.2f lx", luxValue));
         }
         @Override public void onAccuracyChanged(Sensor sensor, int accuracy) { }
     };
@@ -831,6 +861,10 @@ public class MainActivity extends Activity {
             if (line3.length() > 0) line3.append("   ");
             line3.append(String.format(Locale.US, "tilt %.1f/%.1f°", v.tiltPitchDeg, v.tiltRollDeg));
         }
+        if (v.illuminanceLux != null) {
+            if (line3.length() > 0) line3.append("   ");
+            line3.append(String.format(Locale.US, "%.2f lx", v.illuminanceLux));
+        }
         if (line3.length() > 0) lines.add(line3.toString());
 
         Canvas canvas = new Canvas(bitmap);
@@ -876,7 +910,7 @@ public class MainActivity extends Activity {
         boolean ok;
         try {
             CaptureMetadata.Values values = CaptureMetadata.collect(characteristics, result, frame, settings,
-                    cameraId, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, pitchDeg, rollDeg);
+                    cameraId, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, pitchDeg, rollDeg, luxValue);
             String text = CaptureMetadata.toJson(values).toString(2);
             try (FileOutputStream output = new FileOutputStream(json)) {
                 output.write(text.getBytes(StandardCharsets.UTF_8));

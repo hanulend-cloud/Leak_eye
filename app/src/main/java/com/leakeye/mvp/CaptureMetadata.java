@@ -43,6 +43,7 @@ final class CaptureMetadata {
         String requestMode; Integer requestIso; Long requestExposureNs; Float requestFocusDiopters;
         String sweepId; Integer sweepIndex; Integer sweepTotal;
         Float distanceM; String distanceSource; Float tiltPitchDeg; Float tiltRollDeg;
+        Float illuminanceLux;
     }
 
     /** Image가 닫히기 전에 떠 두는 프레임 스냅샷. */
@@ -64,7 +65,8 @@ final class CaptureMetadata {
     }
 
     static Values collect(CameraCharacteristics c, TotalCaptureResult r, Frame f, ExposureSettings s,
-                          String cameraId, String versionName, int versionCode, float pitchDeg, float rollDeg) {
+                          String cameraId, String versionName, int versionCode, float pitchDeg, float rollDeg,
+                          float illuminanceLux) {
         Values v = new Values();
         v.requestMode = s.manual ? "manual" : "auto";
         if (s.manual) { v.requestIso = s.iso; v.requestExposureNs = s.exposureNs; v.requestFocusDiopters = s.focusDiopters; }
@@ -126,6 +128,7 @@ final class CaptureMetadata {
         }
         if (!Float.isNaN(pitchDeg)) v.tiltPitchDeg = pitchDeg;
         if (!Float.isNaN(rollDeg)) v.tiltRollDeg = rollDeg;
+        if (!Float.isNaN(illuminanceLux)) v.illuminanceLux = illuminanceLux;
         return v;
     }
 
@@ -199,6 +202,10 @@ final class CaptureMetadata {
         put(pose, "tilt_pitch_deg", v.tiltPitchDeg);
         put(pose, "tilt_roll_deg", v.tiltRollDeg);
         root.put("pose", pose);
+
+        JSONObject environment = new JSONObject();
+        put(environment, "illuminance_lx", v.illuminanceLux);
+        root.put("environment", environment);
         return root;
     }
 

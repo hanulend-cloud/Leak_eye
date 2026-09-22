@@ -112,6 +112,20 @@ public class CaptureMetadataTest {
     }
 
     @Test
+    public void writesEnvironmentSection() throws Exception {
+        CaptureMetadata.Values v = sample();
+        v.illuminanceLux = 12.34f;
+        JSONObject e = CaptureMetadata.toJson(v).getJSONObject("environment");
+        assertEquals(12.34, e.getDouble("illuminance_lx"), 1e-6);
+    }
+
+    @Test
+    public void omitsIlluminanceWhenUnavailable() throws Exception {
+        JSONObject e = CaptureMetadata.toJson(sample()).getJSONObject("environment");
+        assertFalse(e.has("illuminance_lx"));
+    }
+
+    @Test
     public void omitsNullFields() throws Exception {
         CaptureMetadata.Values v = sample();
         v.aperture = null;

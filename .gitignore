@@ -19,3 +19,6 @@ app/release/
 app/debug/
 __pycache__/
 *.pyc
+
+.claude/settings.local.json
+.claude/release.log

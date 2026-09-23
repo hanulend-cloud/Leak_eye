@@ -682,16 +682,16 @@ public class MainActivity extends Activity {
                 float cx = overlay.getCenterX();
                 float cy = overlay.getCenterY();
                 int side = SquareGeometry.squareSide(w, h, measurementPercent);
-                int luma = sampleSquare(bitmap, cx, cy, side);
-                overlay.updateMetrics(luma, side * side);
+                LumaMath.Stats stats = sampleSquareStats(bitmap, cx, cy, side);
+                overlay.updateMetrics(stats.average, stats.peak, stats.brightAreaPx);
                 bitmap.recycle();
             }
         }
         brightnessHandler.postDelayed(brightnessTick, BRIGHTNESS_INTERVAL_MS);
     }
 
-    private int sampleSquare(Bitmap bitmap, float cx, float cy, int side) {
-        if (side <= 0) return 0;
+    private LumaMath.Stats sampleSquareStats(Bitmap bitmap, float cx, float cy, int side) {
+        if (side <= 0) return new LumaMath.Stats(0, 0, 0);
         float half = side / 2f;
         float clampedCx = SquareGeometry.clampCenter(cx, half, bitmap.getWidth());
         float clampedCy = SquareGeometry.clampCenter(cy, half, bitmap.getHeight());
@@ -699,7 +699,7 @@ public class MainActivity extends Activity {
         int top = Math.round(clampedCy - half);
         int[] pixels = new int[side * side];
         bitmap.getPixels(pixels, 0, side, left, top, side, side);
-        return LumaMath.averageLuma(pixels);
+        return LumaMath.compute(pixels);
     }
 
     private void captureRaw() {

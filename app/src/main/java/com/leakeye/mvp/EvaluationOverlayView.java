@@ -17,8 +17,9 @@ public class EvaluationOverlayView extends View {
     private float centerX = -1f;
     private float centerY = -1f;
     private float percent = 0.10f;
-    private int luma;
-    private int area;
+    private int average;
+    private int peak;
+    private int areaPx;
     private boolean gated = true;
 
     private final Paint boxPaint = new Paint();
@@ -74,9 +75,10 @@ public class EvaluationOverlayView extends View {
         }
     }
 
-    public void updateMetrics(int luma, int area) {
-        this.luma = luma;
-        this.area = area;
+    public void updateMetrics(int average, int peak, int areaPx) {
+        this.average = average;
+        this.peak = peak;
+        this.areaPx = areaPx;
         invalidate();
     }
 
@@ -105,8 +107,10 @@ public class EvaluationOverlayView extends View {
 
         String suffix = gated ? " (측정대기)" : "";
         int percentInt = Math.round(percent * 100);
-        canvas.drawText(String.format(Locale.US, "%d%%: 밝기 %d / 면적 %dpx%s", percentInt, luma, area, suffix),
+        canvas.drawText(String.format(Locale.US, "%d%%: 평균 %d / 피크 %d%s", percentInt, average, peak, suffix),
                 cx + half + 8, cy - half, textPaint);
+        canvas.drawText(String.format(Locale.US, "면적 %dpx", areaPx),
+                cx + half + 8, cy + half, textPaint);
     }
 
     /** (x, y)가 현재 그려진 평가영역 사각형 내부인지 판단한다. onDraw()와 동일한 계산을 재사용한다. */

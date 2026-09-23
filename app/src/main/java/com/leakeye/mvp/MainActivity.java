@@ -133,6 +133,11 @@ public class MainActivity extends Activity {
     private int sweepDone;
     private int sweepFailures;
     private int sweepTotal;
+    private float roiCenterX;
+    private float roiCenterY;
+    private float roiPercent;
+    private int roiViewWidth;
+    private int roiViewHeight;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -751,6 +756,11 @@ public class MainActivity extends Activity {
             currentStamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date());
             pendingResult = null;
             pendingFrame = null;
+            roiCenterX = overlay.getCenterX();
+            roiCenterY = overlay.getCenterY();
+            roiPercent = measurementPercent;
+            roiViewWidth = preview.getWidth();
+            roiViewHeight = preview.getHeight();
             if (pendingJpegBitmap != null) { pendingJpegBitmap.recycle(); pendingJpegBitmap = null; }
             jpegReady = false;
             session.capture(builder.build(), captureCallback, cameraHandler);
@@ -844,7 +854,7 @@ public class MainActivity extends Activity {
     }
 
     /** 사진 좌하단에 반투명 바 위로 촬영조건(모드·ISO·셔터·거리·각도·스윕) 글자를 입힌다. */
-    private void drawOverlay(Bitmap bitmap, CaptureMetadata.Values v) {
+    private void drawOverlay(Bitmap bitmap, CaptureMetadata.Values v, LumaMath.Stats roiStats) {
         List<String> lines = new ArrayList<>();
         String mode = "manual".equals(v.requestMode) ? "MANUAL" : "AUTO";
         lines.add(mode + (v.sweepId != null ? "  sweep " + v.sweepIndex + "/" + v.sweepTotal : ""));
@@ -866,6 +876,8 @@ public class MainActivity extends Activity {
             line3.append(String.format(Locale.US, "%.2f lx", v.illuminanceLux));
         }
         if (line3.length() > 0) lines.add(line3.toString());
+        lines.add(String.format(Locale.US, "평균 %d / 피크 %d / 면적 %dpx",
+                roiStats.average, roiStats.peak, roiStats.brightAreaPx));
 
         Canvas canvas = new Canvas(bitmap);
         float textSize = bitmap.getWidth() * 0.032f;
@@ -917,7 +929,10 @@ public class MainActivity extends Activity {
             }
             String label = "저장 완료: " + frame.rawFile.getName();
             if (jpeg != null) {
-                drawOverlay(jpeg, values);
+                float[] mapped = SquareGeometry.mapToBitmap(roiCenterX, roiCenterY, roiViewWidth, roiViewHeight,
+                        jpeg.getWidth(), jpeg.getHeight(), roiPercent);
+                LumaMath.Stats roiStats = sampleSquareStats(jpeg, mapped[0], mapped[1], Math.round(mapped[2]));
+                drawOverlay(jpeg, values, roiStats);
                 saveJpegToGallery(jpeg, base + ".jpg");
                 label += " + jpg/json";
             } else {

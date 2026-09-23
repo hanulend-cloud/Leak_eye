@@ -19,4 +19,19 @@ final class SquareGeometry {
         if (value + halfSide > dimension) return dimension - halfSide;
         return value;
     }
+
+    /**
+     * 뷰 좌표계의 중심(viewCenterX, viewCenterY)과 percent를, 다른 크기의 비트맵(예: 저장된 JPEG)
+     * 좌표계로 비율(fraction) 매핑한다. TapFocusMapper와 동일한 정규화 방식.
+     * @return {bitmapCenterX, bitmapCenterY, side} (비트맵 좌표계, side는 정수값을 담은 float)
+     */
+    static float[] mapToBitmap(float viewCenterX, float viewCenterY, int viewW, int viewH,
+                                int bitmapW, int bitmapH, float percent) {
+        float fx = viewCenterX / viewW;
+        float fy = viewCenterY / viewH;
+        float bitmapCenterX = fx * bitmapW;
+        float bitmapCenterY = fy * bitmapH;
+        int side = squareSide(bitmapW, bitmapH, percent);
+        return new float[]{bitmapCenterX, bitmapCenterY, side};
+    }
 }

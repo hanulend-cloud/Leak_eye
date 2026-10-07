@@ -6,6 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 REPO="hanulend-cloud/Leak_eye"
 JAVA_HOME="${JAVA_HOME:-E:/Program install/Android studio/jbr}"
+FULL_SHA=$(git rev-parse HEAD)
 SHA=$(git rev-parse --short=7 HEAD)
 TAG="build-${SHA}"
 
@@ -13,6 +14,12 @@ exists_status=$(curl -s -o /dev/null -w '%{http_code}' \
   "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")
 if [ "$exists_status" = "200" ]; then
   echo "release-apk: ${TAG} already released, skipping"
+  exit 0
+fi
+
+# 릴리스는 원격에 존재하는 커밋만 가리킬 수 있으므로 태그를 만들기 전에 현재 브랜치를 push한다.
+if ! git push origin HEAD; then
+  echo "release-apk: push failed, skipping release" >&2
   exit 0
 fi
 
@@ -29,9 +36,9 @@ if [ -z "$TOKEN" ]; then
   exit 0
 fi
 
-BODY=$(jq -n --arg tag "$TAG" --arg name "Leak Eye v${VERSION_NAME} (${SHA})" \
+BODY=$(jq -n --arg tag "$TAG" --arg sha "$FULL_SHA" --arg name "Leak Eye v${VERSION_NAME} (${SHA})" \
   --arg body "Debug build from commit ${SHA}: ${COMMIT_SUBJECT}" \
-  '{tag_name:$tag, target_commitish:"main", name:$name, body:$body, draft:false, prerelease:true}')
+  '{tag_name:$tag, target_commitish:$sha, name:$name, body:$body, draft:false, prerelease:true}')
 
 RESP=$(curl -s -X POST -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github+json" \
   "https://api.github.com/repos/${REPO}/releases" -d "$BODY")

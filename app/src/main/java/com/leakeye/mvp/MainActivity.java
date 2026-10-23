@@ -853,8 +853,12 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** 사진 좌하단에 반투명 바 위로 촬영조건(모드·ISO·셔터·거리·각도·스윕) 글자를 입힌다. */
-    private void drawOverlay(Bitmap bitmap, CaptureMetadata.Values v, LumaMath.Stats roiStats) {
+    /**
+     * 사진 좌하단에 반투명 바 위로 촬영조건(모드·ISO·셔터·거리·각도·스윕)과 측정영역 비율(10/20/30%)·통계
+     * 글자를 입힌다. 측정영역 사각형·십자선은 사진에 그리지 않는다.
+     */
+    private void drawOverlay(Bitmap bitmap, CaptureMetadata.Values v, LumaMath.Stats roiStats, float percent) {
+        int percentInt = Math.round(percent * 100);
         List<String> lines = new ArrayList<>();
         String mode = "manual".equals(v.requestMode) ? "MANUAL" : "AUTO";
         lines.add(mode + (v.sweepId != null ? "  sweep " + v.sweepIndex + "/" + v.sweepTotal : ""));
@@ -876,8 +880,8 @@ public class MainActivity extends Activity {
             line3.append(String.format(Locale.US, "%.2f lx", v.illuminanceLux));
         }
         if (line3.length() > 0) lines.add(line3.toString());
-        lines.add(String.format(Locale.US, "평균 %d / 피크 %d / 면적 %dpx",
-                roiStats.average, roiStats.peak, roiStats.brightAreaPx));
+        lines.add(String.format(Locale.US, "측정영역 %d%%: 평균 %d / 피크 %d / 면적 %dpx",
+                percentInt, roiStats.average, roiStats.peak, roiStats.brightAreaPx));
 
         Canvas canvas = new Canvas(bitmap);
         float textSize = bitmap.getWidth() * 0.032f;
@@ -932,7 +936,7 @@ public class MainActivity extends Activity {
                 float[] mapped = SquareGeometry.mapToBitmap(roiCenterX, roiCenterY, roiViewWidth, roiViewHeight,
                         jpeg.getWidth(), jpeg.getHeight(), roiPercent);
                 LumaMath.Stats roiStats = sampleSquareStats(jpeg, mapped[0], mapped[1], Math.round(mapped[2]));
-                drawOverlay(jpeg, values, roiStats);
+                drawOverlay(jpeg, values, roiStats, roiPercent);
                 saveJpegToGallery(jpeg, base + ".jpg");
                 label += " + jpg/json";
             } else {

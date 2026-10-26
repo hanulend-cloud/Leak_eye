@@ -10,7 +10,11 @@ REPO="hanulend-cloud/Leak_eye"
 if [ -z "${JAVA_HOME:-}" ] && [ -d "E:/Program install/Android studio/jbr" ]; then
   export JAVA_HOME="E:/Program install/Android studio/jbr"
 fi
-PY=$(command -v python3 || command -v python || true)
+# Windows의 python3는 스토어 안내용 별칭일 수 있으므로 실제로 실행되는 것을 고른다.
+PY=""
+for candidate in python3 python; do
+  if "$candidate" -c "" >/dev/null 2>&1; then PY="$candidate"; break; fi
+done
 if [ -z "$PY" ]; then
   echo "release-apk: python not found, skipping" >&2
   exit 0

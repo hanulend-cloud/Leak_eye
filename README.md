@@ -45,6 +45,16 @@ Android Studio에서 이 폴더를 열고 Gradle Sync 후 Galaxy Z Fold5에 실�
 
 실행 전 휴대폰에서 USB 디버깅과 카메라 권한을 허용해야 합니다.
 
+## APK 릴리스
+
+설치용 APK는 GitHub Releases에 버전별로 올리며, 가장 최근 버전에 **Latest** 표시가 붙습니다
+(APK는 저장소에 커밋하지 않으므로 clone으로는 받아지지 않습니다).
+
+1. `app/build.gradle`의 `versionName`(예: `0.1.1` → `0.1.2`)과 `versionCode`(1씩 증가)를 올리고 커밋
+2. `bash scripts/release-apk.sh` 실행 → push 후 빌드해 `Leak Eye v<버전>` 릴리스와 `Leak_eye-v<버전>.apk`를 업로드
+
+같은 버전의 릴리스가 이미 있으면 스크립트는 아무것도 하지 않습니다.
+
 ## 다음 구현 단계
 
 1. 목표 거리·각도 범위를 정해두고 조건 만족 시 안내(화면 색상 등)와 자동 촬영

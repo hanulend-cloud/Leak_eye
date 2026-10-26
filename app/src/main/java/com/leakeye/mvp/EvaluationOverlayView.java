@@ -105,11 +105,11 @@ public class EvaluationOverlayView extends View {
         canvas.drawLine(0, cy, left, cy, linePaint);
         canvas.drawLine(right, cy, w, cy, linePaint);
 
-        String suffix = gated ? " (측정대기)" : "";
+        String suffix = gated ? " (waiting)" : "";
         int percentInt = Math.round(percent * 100);
-        canvas.drawText(String.format(Locale.US, "%d%%: 평균 %d / 피크 %d%s", percentInt, average, peak, suffix),
+        canvas.drawText(String.format(Locale.US, "%d%%: Avg %d / Peak %d%s", percentInt, average, peak, suffix),
                 cx + half + 8, cy - half, textPaint);
-        canvas.drawText(String.format(Locale.US, "면적 %dpx", areaPx),
+        canvas.drawText(String.format(Locale.US, "Area %dpx", areaPx),
                 cx + half + 8, cy + half, textPaint);
     }
 

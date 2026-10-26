@@ -30,7 +30,7 @@ final class ExposureSettings {
     }
 
     String describe() {
-        if (!manual) return "자동 노출";
-        return "ISO " + iso + ", " + ExposureScale.formatExposure(exposureNs) + ", 초점 " + ExposureScale.formatFocus(focusDiopters);
+        if (!manual) return "Auto exposure";
+        return "ISO " + iso + ", " + ExposureScale.formatExposure(exposureNs) + ", focus " + ExposureScale.formatFocus(focusDiopters);
     }
 }

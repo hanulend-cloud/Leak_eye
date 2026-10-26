@@ -30,7 +30,7 @@ final class ExposureControls extends LinearLayout {
         setPadding(24, 0, 24, 0);
 
         manualSwitch = new Switch(ctx);
-        manualSwitch.setText("수동 노출 (ISO / 셔터 / 초점 고정)");
+        manualSwitch.setText("Manual exposure (lock ISO / shutter / focus)");
         manualSwitch.setTextColor(Color.LTGRAY);
         addView(manualSwitch, new LayoutParams(-1, -2));
 
@@ -115,8 +115,8 @@ final class ExposureControls extends LinearLayout {
 
     private void refreshLabels() {
         isoLabel.setText("ISO " + iso());
-        exposureLabel.setText("셔터 " + ExposureScale.formatExposure(exposureNs()));
-        focusLabel.setText("초점 " + ExposureScale.formatFocus(focusDiopters()));
+        exposureLabel.setText("Shutter " + ExposureScale.formatExposure(exposureNs()));
+        focusLabel.setText("Focus " + ExposureScale.formatFocus(focusDiopters()));
     }
 
     private void notifyChanged() {

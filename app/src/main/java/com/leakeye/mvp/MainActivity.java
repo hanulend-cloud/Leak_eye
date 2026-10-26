@@ -148,9 +148,9 @@ public class MainActivity extends Activity {
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
         if (rotationSensor == null) rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-        if (rotationSensor == null) poseStatus.setText("각도 센서 없음");
+        if (rotationSensor == null) poseStatus.setText("Tilt: no sensor");
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        if (lightSensor == null) luxStatus.setText("조도 센서 없음");
+        if (lightSensor == null) luxStatus.setText("Lux: no sensor");
     }
 
     @Override
@@ -188,7 +188,7 @@ public class MainActivity extends Activity {
         titleRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
 
         luxStatus = new TextView(this);
-        luxStatus.setText("조도: 측정 중...");
+        luxStatus.setText("Lux: measuring...");
         luxStatus.setTextColor(COLOR_TEXT_SECONDARY);
         luxStatus.setTextSize(13);
         luxStatus.setPadding(16, 12, 16, 6);
@@ -198,28 +198,28 @@ public class MainActivity extends Activity {
         root.addView(titleRow, new LinearLayout.LayoutParams(-1, -2));
 
         status = new TextView(this);
-        status.setText("카메라 capability 확인 중...");
+        status.setText("Checking camera capabilities...");
         status.setTextColor(COLOR_TEXT_SECONDARY);
         status.setTextSize(13);
         status.setPadding(16, 0, 16, 6);
         root.addView(status, new LinearLayout.LayoutParams(-1, -2));
 
         poseStatus = new TextView(this);
-        poseStatus.setText("각도: 측정 중...");
+        poseStatus.setText("Tilt: measuring...");
         poseStatus.setTextColor(COLOR_TEXT_SECONDARY);
         poseStatus.setTextSize(13);
         poseStatus.setPadding(16, 0, 16, 0);
         root.addView(poseStatus, new LinearLayout.LayoutParams(-1, -2));
 
         distanceStatus = new TextView(this);
-        distanceStatus.setText("거리(추정): -");
+        distanceStatus.setText("Distance (est.): -");
         distanceStatus.setTextColor(COLOR_TEXT_SECONDARY);
         distanceStatus.setTextSize(13);
         distanceStatus.setPadding(16, 0, 16, 6);
         root.addView(distanceStatus, new LinearLayout.LayoutParams(-1, -2));
 
         focusStatus = new TextView(this);
-        focusStatus.setText("포커스: -");
+        focusStatus.setText("Focus: -");
         focusStatus.setTextColor(COLOR_TEXT_SECONDARY);
         focusStatus.setTextSize(13);
         focusStatus.setPadding(16, 0, 16, 6);
@@ -228,7 +228,7 @@ public class MainActivity extends Activity {
         LinearLayout zoomAndPercentRow = new LinearLayout(this);
         zoomAndPercentRow.setOrientation(LinearLayout.HORIZONTAL);
         zoomButton = new Button(this);
-        zoomButton.setText("확대: 3배");
+        zoomButton.setText("Zoom: 3×");
         zoomButton.setTextColor(COLOR_BUTTON_TEXT);
         zoomButton.setBackgroundColor(COLOR_BUTTON_NORMAL);
         zoomButton.setOnClickListener(view -> toggleZoom());
@@ -281,12 +281,12 @@ public class MainActivity extends Activity {
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.HORIZONTAL);
         Button capture = new Button(this);
-        capture.setText("RAW 촬영");
+        capture.setText("RAW Capture");
         capture.setTextColor(COLOR_BUTTON_TEXT);
         capture.setBackgroundColor(COLOR_BUTTON_NORMAL);
         capture.setOnClickListener(view -> captureRaw());
         Button sweep = new Button(this);
-        sweep.setText("노출 스윕 (16장)");
+        sweep.setText("Exposure Sweep (16)");
         sweep.setTextColor(COLOR_BUTTON_TEXT);
         sweep.setBackgroundColor(COLOR_BUTTON_NORMAL);
         sweep.setOnClickListener(view -> captureSweep());
@@ -307,7 +307,7 @@ public class MainActivity extends Activity {
             permissionGranted = true;
             maybeOpenCamera();
         } else {
-            status.setText("카메라 권한이 없어 측정을 시작할 수 없습니다.");
+            status.setText("No camera permission. Allow Camera in Settings to measure.");
         }
     }
 
@@ -381,19 +381,19 @@ public class MainActivity extends Activity {
             openCameraDevice();
         } catch (Exception e) {
             cameraId = null;
-            status.setText("카메라 초기화 실패: " + e.getClass().getSimpleName());
+            status.setText("Camera init failed: " + e.getClass().getSimpleName());
         }
     }
 
     private void openCameraDevice() {
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        status.setText("후면 카메라 " + cameraId + " / RAW " + (rawSupported ? "지원" : "미지원") + " / 준비 중");
+        status.setText("Rear camera " + cameraId + " / RAW " + (rawSupported ? "supported" : "not supported") + " / starting");
         try {
             if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 manager.openCamera(cameraId, stateCallback, cameraHandler);
             }
         } catch (CameraAccessException e) {
-            status.setText("카메라 열기 실패: " + e.getClass().getSimpleName());
+            status.setText("Camera open failed: " + e.getClass().getSimpleName());
         }
     }
 
@@ -431,7 +431,7 @@ public class MainActivity extends Activity {
             device.close();
             if (camera == device) camera = null;
             session = null;
-            runOnUiThread(() -> status.setText("카메라 오류: " + error));
+            runOnUiThread(() -> status.setText("Camera error: " + error));
         }
     };
 
@@ -448,7 +448,7 @@ public class MainActivity extends Activity {
             float[] angles = Attitude.fromRotationVector(event.values);
             pitchDeg = angles[0];
             rollDeg = angles[1];
-            poseStatus.setText(String.format(Locale.US, "각도: 상하 %.1f° / 좌우 %.1f°", pitchDeg, rollDeg));
+            poseStatus.setText(String.format(Locale.US, "Tilt: pitch %.1f° / roll %.1f°", pitchDeg, rollDeg));
         }
         @Override public void onAccuracyChanged(Sensor sensor, int accuracy) { }
     };
@@ -467,13 +467,13 @@ public class MainActivity extends Activity {
             Float diopters = result.get(CaptureResult.LENS_FOCUS_DISTANCE);
             if (diopters != null) {
                 Float meters = ExposureScale.distanceMeters(diopters);
-                String text = meters != null ? String.format(Locale.US, "거리(추정): %.2f m (AF)", meters) : "거리(추정): ∞";
+                String text = meters != null ? String.format(Locale.US, "Distance (est.): %.2f m (AF)", meters) : "Distance (est.): ∞";
                 runOnUiThread(() -> distanceStatus.setText(text));
             }
             Integer afState = result.get(CaptureResult.CONTROL_AF_STATE);
             boolean locked = controls.current().manual || AfStateClassifier.isLocked(afState);
             runOnUiThread(() -> {
-                focusStatus.setText(locked ? "포커스: 완료" : "포커스: 확인중");
+                focusStatus.setText(locked ? "Focus: locked" : "Focus: checking");
                 if (overlay != null) overlay.setGated(!locked);
             });
         }
@@ -485,7 +485,7 @@ public class MainActivity extends Activity {
             tryFinishCapture();
         }
         @Override public void onCaptureFailed(CameraCaptureSession s, CaptureRequest request, CaptureFailure failure) {
-            runOnUiThread(() -> status.setText("촬영 실패 (reason " + failure.getReason() + ")"));
+            runOnUiThread(() -> status.setText("Capture failed (reason " + failure.getReason() + ")"));
             finishCapture(false);
         }
     };
@@ -514,16 +514,16 @@ public class MainActivity extends Activity {
                 @Override public void onConfigured(CameraCaptureSession configured) {
                     session = configured;
                     runOnUiThread(() -> {
-                        status.setText("측정 대기 / RAW " + (rawSupported ? "지원" : "미지원"));
+                        status.setText("Ready / RAW " + (rawSupported ? "supported" : "not supported"));
                         layoutPreview();
                         updatePreview();
                         if (overlay.getCenterX() >= 0) focusAt(overlay.getCenterX(), overlay.getCenterY());
                         startBrightnessSampler();
                     });
                 }
-                @Override public void onConfigureFailed(CameraCaptureSession configured) { runOnUiThread(() -> status.setText("촬영 세션 구성 실패")); }
+                @Override public void onConfigureFailed(CameraCaptureSession configured) { runOnUiThread(() -> status.setText("Capture session setup failed")); }
             }, cameraHandler);
-        } catch (CameraAccessException e) { status.setText("미리보기 시작 실패"); }
+        } catch (CameraAccessException e) { status.setText("Preview start failed"); }
     }
 
     /** UI 스레드. 미리보기 컨테이너 안에서 previewSize의 실제 비율(세로 4:3)을 유지하도록 크기를 정하고 변환행렬을 적용한다. */
@@ -582,7 +582,7 @@ public class MainActivity extends Activity {
                 session.setRepeatingRequest(builder.build(), previewCallback, cameraHandler);
             } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
                 runOnUiThread(() -> {
-                    status.setText("수동 노출 미지원: " + settings.describe());
+                    status.setText("Manual exposure not supported: " + settings.describe());
                     controls.setManual(false);
                 });
             }
@@ -592,7 +592,7 @@ public class MainActivity extends Activity {
     /** 배율을 1배/3배로 토글하고, 새 크롭 영역으로 AF 리전을 다시 맞춘다. */
     private void toggleZoom() {
         zoomFactor = (zoomFactor == 3f) ? 1f : 3f;
-        zoomButton.setText(zoomFactor == 3f ? "확대: 3배" : "확대: 1배");
+        zoomButton.setText(zoomFactor == 3f ? "Zoom: 3×" : "Zoom: 1×");
         if (activeArraySize != null) {
             int[] crop = ZoomCropRegion.centeredCrop(activeArraySize.left, activeArraySize.top,
                     activeArraySize.right, activeArraySize.bottom, zoomFactor);
@@ -723,7 +723,7 @@ public class MainActivity extends Activity {
 
     private boolean ready() {
         if (camera == null || session == null || !rawSupported) {
-            Toast.makeText(this, "RAW 촬영을 지원하는 후면 카메라가 준비되지 않았습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No rear camera with RAW capture is ready.", Toast.LENGTH_SHORT).show();
             return false;
         }
         return true;
@@ -765,11 +765,11 @@ public class MainActivity extends Activity {
             jpegReady = false;
             session.capture(builder.build(), captureCallback, cameraHandler);
             String label = next.sweepId != null
-                    ? "스윕 " + next.sweepIndex + "/" + next.sweepTotal + " 촬영 중 (" + next.describe() + ")"
-                    : "RAW 촬영 중 (" + next.describe() + ")";
+                    ? "Sweep " + next.sweepIndex + "/" + next.sweepTotal + " capturing (" + next.describe() + ")"
+                    : "Capturing RAW (" + next.describe() + ")";
             runOnUiThread(() -> status.setText(label));
         } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
-            runOnUiThread(() -> status.setText("촬영 요청 실패: " + e.getClass().getSimpleName()));
+            runOnUiThread(() -> status.setText("Capture request failed: " + e.getClass().getSimpleName()));
             inFlight = next;
             finishCapture(false);
         }
@@ -787,7 +787,7 @@ public class MainActivity extends Activity {
             sweepDone++;
             if (!ok) sweepFailures++;
             if (queue.isEmpty()) {
-                String summary = "스윕 완료 " + sweepDone + "/" + sweepTotal + (sweepFailures > 0 ? " (실패 " + sweepFailures + ")" : "");
+                String summary = "Sweep done " + sweepDone + "/" + sweepTotal + (sweepFailures > 0 ? " (failed " + sweepFailures + ")" : "");
                 runOnUiThread(() -> status.setText(summary));
             }
         }
@@ -805,10 +805,10 @@ public class MainActivity extends Activity {
             buffer.get(bytes);
             output.write(bytes);
             pendingFrame = CaptureMetadata.frameOf(image, file, bytes.length);
-            runOnUiThread(() -> status.setText("저장 완료: " + file.getName() + " (메타데이터 대기)"));
+            runOnUiThread(() -> status.setText("Saved: " + file.getName() + " (waiting for metadata)"));
             tryFinishCapture();
         } catch (IOException e) {
-            runOnUiThread(() -> status.setText("RAW 저장 실패: " + e.getMessage()));
+            runOnUiThread(() -> status.setText("RAW save failed: " + e.getMessage()));
             finishCapture(false);
         } finally { image.close(); }
     }
@@ -846,9 +846,9 @@ public class MainActivity extends Activity {
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
         values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/LeakEye");
         Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-        if (uri == null) throw new IOException("갤러리 저장 위치를 만들지 못함");
+        if (uri == null) throw new IOException("Could not create gallery entry");
         try (OutputStream out = getContentResolver().openOutputStream(uri)) {
-            if (out == null) throw new IOException("갤러리 출력 스트림 없음");
+            if (out == null) throw new IOException("No gallery output stream");
             bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
         }
     }
@@ -880,7 +880,7 @@ public class MainActivity extends Activity {
             line3.append(String.format(Locale.US, "%.2f lx", v.illuminanceLux));
         }
         if (line3.length() > 0) lines.add(line3.toString());
-        lines.add(String.format(Locale.US, "측정영역 %d%%: 평균 %d / 피크 %d / 면적 %dpx",
+        lines.add(String.format(Locale.US, "ROI %d%%: Avg %d / Peak %d / Area %dpx",
                 percentInt, roiStats.average, roiStats.peak, roiStats.brightAreaPx));
 
         Canvas canvas = new Canvas(bitmap);
@@ -931,7 +931,7 @@ public class MainActivity extends Activity {
             try (FileOutputStream output = new FileOutputStream(json)) {
                 output.write(text.getBytes(StandardCharsets.UTF_8));
             }
-            String label = "저장 완료: " + frame.rawFile.getName();
+            String label = "Saved: " + frame.rawFile.getName();
             if (jpeg != null) {
                 float[] mapped = SquareGeometry.mapToBitmap(roiCenterX, roiCenterY, roiViewWidth, roiViewHeight,
                         jpeg.getWidth(), jpeg.getHeight(), roiPercent);
@@ -940,13 +940,13 @@ public class MainActivity extends Activity {
                 saveJpegToGallery(jpeg, base + ".jpg");
                 label += " + jpg/json";
             } else {
-                label += " + json (jpg 실패)";
+                label += " + json (jpg failed)";
             }
             String finalLabel = label;
             runOnUiThread(() -> status.setText(finalLabel));
             ok = true;
         } catch (IOException | JSONException e) {
-            runOnUiThread(() -> status.setText("저장 실패: " + e.getMessage()));
+            runOnUiThread(() -> status.setText("Save failed: " + e.getMessage()));
             ok = false;
         } finally {
             if (jpeg != null) jpeg.recycle();
